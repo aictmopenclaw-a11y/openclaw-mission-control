@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw Mission Control</title>
+<style>
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface2: #1a2332;
+  --border: #1e2d3d;
+  --text: #e2e8f0;
+  --text-dim: #8892a4;
+  --accent: #3b82f6;
+  --accent-glow: #3b82f640;
+  --green: #22c55e;
+  --yellow: #eab308;
+  --red: #ef4444;
+  --purple: #a855f7;
+  --cyan: #06b6d4;
+  --orange: #f97316;
+  --radius: 10px;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* Header */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  font-size: 24px;
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+.header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.header h1 span {
+  color: var(--accent);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+.status-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.connecting { background: var(--yellow); animation: pulse 1.5s infinite; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.config-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.config-btn:hover {
+  background: var(--border);
+}
+
+/* Config Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 420px;
+  max-width: 90vw;
+}
+
+.modal h2 {
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.modal label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  margin-top: 12px;
+}
+
+.modal input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: var(--mono);
+}
+
+.modal input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-primary:hover { filter: brightness(1.15); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover { background: var(--surface2); }
+
+/* Grid Layout */
+.dashboard {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 16px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title .icon {
+  font-size: 16px;
+}
+
+.card-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.badge-green { background: #22c55e20; color: var(--green); }
+.badge-yellow { background: #eab30820; color: var(--yellow); }
+.badge-red { background: #ef444420; color: var(--red); }
+.badge-blue { background: #3b82f620; color: var(--accent); }
+
+.card-body {
+  padding: 16px 18px;
+}
+
+/* Health Section */
+.health-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.health-item {
+  background: var(--surface2);
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.health-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.health-value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.health-value.ok { color: var(--green); }
+.health-value.warn { color: var(--yellow); }
+.health-value.error { color: var(--red); }
+
+/* Agent/Channel/Model items */
+.item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.item-row:last-child { border-bottom: none; }
+
+.item-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.item-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.item-avatar.agent { background: #3b82f620; }
+.item-avatar.channel { background: #06b6d420; }
+.item-avatar.model { background: #a855f720; }
+
+.item-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.item-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.item-status {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+/* Sessions */
+.session-item {
+  background: var(--surface2);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.session-item:last-child { margin-bottom: 0; }
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.session-id {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--cyan);
+}
+
+.session-time {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.session-bar {
+  height: 4px;
+  background: var(--bg);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.session-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+/* Task Board */
+.task-board {
+  grid-column: 1 / -1;
+}
+
+.kanban {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.kanban-col {
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 120px;
+}
+
+.kanban-col-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kanban-col-title .count {
+  background: var(--bg);
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.task-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: grab;
+  transition: all 0.15s;
+  font-size: 13px;
+}
+
+.task-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.task-card .task-label {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+
+.task-card .task-text {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.label-feature { background: #3b82f620; color: var(--accent); }
+.label-bug { background: #ef444420; color: var(--red); }
+.label-infra { background: #a855f720; color: var(--purple); }
+.label-ops { background: #22c55e20; color: var(--green); }
+
+.add-task {
+  width: 100%;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-dim);
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.add-task:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Quick Actions */
+.actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.action-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent)10;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-icon {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.action-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.action-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Log Output */
+.log-output {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  max-height: 160px;
+  overflow-y: auto;
+  margin-top: 10px;
+  line-height: 1.6;
+  display: none;
+}
+
+.log-output.visible { display: block; }
+
+.log-line { color: var(--text-dim); }
+.log-line.ok { color: var(--green); }
+.log-line.err { color: var(--red); }
+.log-line.info { color: var(--cyan); }
+
+/* Task Add Modal */
+.task-modal .modal {
+  width: 480px;
+}
+
+.task-modal select {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.task-modal textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: var(--font);
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard { grid-template-columns: 1fr; padding: 12px; }
+  .kanban { grid-template-columns: 1fr; }
+  .health-grid { grid-template-columns: 1fr; }
+  .actions-grid { grid-template-columns: 1fr; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  height: 16px;
+  width: 80%;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Drag & Drop */
+.task-card.dragging { opacity: 0.5; }
+.kanban-col.drag-over { background: var(--accent)10; border: 1px dashed var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo">&#x1F9D9;</div>
+    <h1>Mission <span>Control</span></h1>
+  </div>
+  <div class="header-right">
+    <div class="connection-status">
+      <div class="status-dot" id="connDot"></div>
+      <span id="connText">Disconnected</span>
+    </div>
+    <button class="config-btn" onclick="openConfig()">Settings</button>
+  </div>
+</header>
+
+<!-- Config Modal -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <h2>Connection Settings</h2>
+    <label>Proxy URL</label>
+    <input id="cfgProxy" placeholder="http://localhost:3100">
+    <label>Gateway Token</label>
+    <input id="cfgToken" type="password" placeholder="fcoNurBn...">
+    <label>Refresh Interval (seconds)</label>
+    <input id="cfgInterval" type="number" value="10" min="3" max="120">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeConfig()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveConfig()">Save &amp; Connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- Task Add Modal -->
+<div class="modal-overlay task-modal" id="taskModal">
+  <div class="modal">
+    <h2>Add Task</h2>
+    <label>Title</label>
+    <input id="taskTitle" placeholder="Task description">
+    <label>Label</label>
+    <select id="taskLabel">
+      <option value="feature">Feature</option>
+      <option value="bug">Bug</option>
+      <option value="infra">Infra</option>
+      <option value="ops">Ops</option>
+    </select>
+    <label>Column</label>
+    <select id="taskCol">
+      <option value="backlog">Backlog</option>
+      <option value="progress">In Progress</option>
+      <option value="done">Done</option>
+    </select>
+    <label>Notes (optional)</label>
+    <textarea id="taskNotes" rows="2"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeTaskModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="addTask()">Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dashboard Grid -->
+<div class="dashboard">
+
+  <!-- System Health -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">&#x1F3E5;</span> System Health</div>
+      <span class="card-badge badge-green" id="healthBadge">--</span>
+    </div>
+    <div class="card-body">
+      <div class="health-grid">
+        <div class="health-item">
+          <div class="health-label">Gateway</div>
+          <div class="health-value" id="hGateway">--</div>
+        </div>
+        <div class="health-item">
+          <div class="health-label">Uptime</div>
+          <div class="health-value" id="hUptime">--</div>
+        </div>
+        <div class="health-item">
+          <div class="health-label">Port</div>
+          <div class="health-value" id="hPort">--</div>
+        </div>
+        <div class="health-item">
+          <div class="health-label">Security</div>
+          <div class="health-value" id="hSecurity">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agents -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">&#x1F916;</span> Agents</div>
+      <span class="card-badge badge-blue" id="agentCount">0</span>
+    </div>
+    <div class="card-body" id="agentList">
+      <div class="skeleton"></div>
+    </div>
+  </div>
+
+  <!-- Channels -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">&#x1F4E1;</span> Channels</div>
+      <span class="card-badge badge-blue" id="channelCount">0</span>
+    </div>
+    <div class="card-body" id="channelList">
+      <div class="skeleton"></div>
+    </div>
+  </div>
+
+  <!-- Models -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">&#x1F9E0;</span> Models</div>
+      <span class="card-badge badge-blue" id="modelCount">0</span>
+    </div>
+    <div class="card-body" id="modelList" style="max-height: 300px; overflow-y: auto;">
+      <div class="skeleton"></div>
+    </div>
+  </div>
+
+  <!-- Sessions -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">&#x1F4AC;</span> Sessions</div>
+      <span class="card-badge badge-blue" id="sessionCount">0</span>
+    </div>
+    <div class="card-body" id="sessionList" style="max-height: 260px; overflow-y: auto;">
+      <div class="skeleton"></div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">&#x26A1;</span> Quick Actions</div>
+    </div>
+    <div class="card-body">
+      <div class="actions-grid">
+        <button class="action-btn" onclick="actionHealth()">
+          <div class="action-icon">&#x1F3E5;</div>
+          <div class="action-label">Health Check</div>
+          <div class="action-desc">Run full health scan</div>
+        </button>
+        <button class="action-btn" onclick="actionChannels()">
+          <div class="action-icon">&#x1F4E1;</div>
+          <div class="action-label">Channel Status</div>
+          <div class="action-desc">Check all channels</div>
+        </button>
+        <button class="action-btn" onclick="actionCron()">
+          <div class="action-icon">&#x23F0;</div>
+          <div class="action-label">Cron Jobs</div>
+          <div class="action-desc">List scheduled tasks</div>
+        </button>
+        <button class="action-btn" onclick="actionRefresh()">
+          <div class="action-icon">&#x1F504;</div>
+          <div class="action-label">Force Refresh</div>
+          <div class="action-desc">Reload all data now</div>
+        </button>
+      </div>
+      <div class="log-output" id="actionLog"></div>
+    </div>
+  </div>
+
+  <!-- Task Board -->
+  <div class="card task-board">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">&#x1F4CB;</span> Task Board</div>
+      <button class="config-btn" onclick="openTaskModal()">+ Add Task</button>
+    </div>
+    <div class="card-body">
+      <div class="kanban">
+        <div class="kanban-col" id="col-backlog" ondrop="dropTask(event,'backlog')" ondragover="dragOver(event)" ondragleave="dragLeave(event)">
+          <div class="kanban-col-title" style="color:var(--text-dim)">Backlog <span class="count" id="cnt-backlog">0</span></div>
+          <div id="tasks-backlog"></div>
+          <button class="add-task" onclick="openTaskModal('backlog')">+ Add</button>
+        </div>
+        <div class="kanban-col" id="col-progress" ondrop="dropTask(event,'progress')" ondragover="dragOver(event)" ondragleave="dragLeave(event)">
+          <div class="kanban-col-title" style="color:var(--yellow)">In Progress <span class="count" id="cnt-progress">0</span></div>
+          <div id="tasks-progress"></div>
+          <button class="add-task" onclick="openTaskModal('progress')">+ Add</button>
+        </div>
+        <div class="kanban-col" id="col-done" ondrop="dropTask(event,'done')" ondragover="dragOver(event)" ondragleave="dragLeave(event)">
+          <div class="kanban-col-title" style="color:var(--green)">Done <span class="count" id="cnt-done">0</span></div>
+          <div id="tasks-done"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ==================== STATE ====================
+const CONFIG_KEY = 'oc_mission_config';
+const TASKS_KEY = 'oc_mission_tasks';
+
+let config = loadConfig();
+let tasks = loadTasks();
+let refreshTimer = null;
+let connected = false;
+
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem(CONFIG_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return {
+    proxyUrl: 'http://localhost:3100',
+    token: '',
+    interval: 10
+  };
+}
+
+function loadTasks() {
+  try {
+    const saved = localStorage.getItem(TASKS_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return [
+    { id: 1, text: 'Configure email channel (Maton)', label: 'infra', col: 'backlog' },
+    { id: 2, text: 'Set up cron health checks', label: 'ops', col: 'backlog' },
+    { id: 3, text: 'Test Telegram bot in group chat', label: 'feature', col: 'progress' },
+    { id: 4, text: 'Initial OpenClaw deployment', label: 'infra', col: 'done' }
+  ];
+}
+
+function saveTasks() {
+  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+}
+
+// ==================== CONFIG MODAL ====================
+function openConfig() {
+  document.getElementById('cfgProxy').value = config.proxyUrl;
+  document.getElementById('cfgToken').value = config.token;
+  document.getElementById('cfgInterval').value = config.interval;
+  document.getElementById('configModal').classList.add('active');
+}
+
+function closeConfig() {
+  document.getElementById('configModal').classList.remove('active');
+}
+
+function saveConfig() {
+  config.proxyUrl = document.getElementById('cfgProxy').value.replace(/\/+$/, '');
+  config.token = document.getElementById('cfgToken').value;
+  config.interval = parseInt(document.getElementById('cfgInterval').value) || 10;
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  closeConfig();
+  startPolling();
+}
+
+// ==================== API ====================
+async function rpc(method, args) {
+  if (!config.proxyUrl || !config.token) return null;
+  try {
+    const res = await fetch(`${config.proxyUrl}/rpc`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.token}`
+      },
+      body: JSON.stringify({ method, args: args || {} })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    console.warn(`RPC ${method} failed:`, e.message);
+    return null;
+  }
+}
+
+async function apiGet(path) {
+  if (!config.proxyUrl || !config.token) return null;
+  try {
+    const res = await fetch(`${config.proxyUrl}${path}`, {
+      headers: { 'Authorization': `Bearer ${config.token}` }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    console.warn(`GET ${path} failed:`, e.message);
+    return null;
+  }
+}
+
+// ==================== DATA REFRESH ====================
+async function refreshAll() {
+  const [status, health, channels, config_data] = await Promise.all([
+    rpc('gateway.status'),
+    rpc('gateway.health'),
+    rpc('channels.status'),
+    apiGet('/config')
+  ]);
+
+  const isUp = status || health;
+  setConnection(!!isUp);
+
+  renderHealth(status, health);
+  renderAgents(config_data);
+  renderChannels(channels, config_data);
+  renderModels(config_data);
+  renderSessions(status);
+}
+
+function setConnection(state) {
+  connected = state;
+  const dot = document.getElementById('connDot');
+  const text = document.getElementById('connText');
+  if (state) {
+    dot.className = 'status-dot connected';
+    text.textContent = 'Connected';
+  } else {
+    dot.className = 'status-dot';
+    text.textContent = 'Disconnected';
+  }
+}
+
+function startPolling() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  setConnection(false);
+  document.getElementById('connDot').className = 'status-dot connecting';
+  document.getElementById('connText').textContent = 'Connecting...';
+  refreshAll();
+  refreshTimer = setInterval(refreshAll, config.interval * 1000);
+}
+
+// ==================== RENDER FUNCTIONS ====================
+function renderHealth(status, health) {
+  const badge = document.getElementById('healthBadge');
+  const gw = document.getElementById('hGateway');
+  const up = document.getElementById('hUptime');
+  const port = document.getElementById('hPort');
+  const sec = document.getElementById('hSecurity');
+
+  if (!status && !health) {
+    badge.textContent = 'Offline';
+    badge.className = 'card-badge badge-red';
+    gw.textContent = 'Offline'; gw.className = 'health-value error';
+    up.textContent = '--';
+    port.textContent = '--';
+    sec.textContent = '--';
+    return;
+  }
+
+  badge.textContent = 'Online';
+  badge.className = 'card-badge badge-green';
+
+  gw.textContent = 'Online';
+  gw.className = 'health-value ok';
+
+  if (status && status.uptime) {
+    const secs = status.uptime;
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    up.textContent = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  } else {
+    up.textContent = 'Active';
+  }
+
+  port.textContent = status?.port || '54924';
+  port.className = 'health-value';
+
+  const securityIssues = [];
+  if (status?.config?.controlUi?.allowInsecureAuth) securityIssues.push('insecure auth');
+  if (status?.config?.controlUi?.dangerouslyDisableDeviceAuth) securityIssues.push('no device auth');
+
+  if (securityIssues.length > 0) {
+    sec.textContent = 'Warnings';
+    sec.className = 'health-value warn';
+    sec.title = securityIssues.join(', ');
+  } else {
+    sec.textContent = 'OK';
+    sec.className = 'health-value ok';
+  }
+}
+
+function renderAgents(cfg) {
+  const el = document.getElementById('agentList');
+  const cnt = document.getElementById('agentCount');
+
+  if (!cfg || !cfg.agents) {
+    el.innerHTML = '<div class="item-row"><div class="item-info"><div class="item-sub">No data</div></div></div>';
+    cnt.textContent = '0';
+    return;
+  }
+
+  const agents = cfg.agents.list || [];
+  cnt.textContent = agents.length;
+
+  el.innerHTML = agents.map(a => `
+    <div class="item-row">
+      <div class="item-info">
+        <div class="item-avatar agent">${a.name === 'Bob' ? '&#x1F9D9;' : '&#x1F916;'}</div>
+        <div>
+          <div class="item-name">${esc(a.name || a.id)}</div>
+          <div class="item-sub">${esc(a.model || 'default')}</div>
+        </div>
+      </div>
+      <span class="item-status badge-green">Active</span>
+    </div>
+  `).join('');
+}
+
+function renderChannels(channels, cfg) {
+  const el = document.getElementById('channelList');
+  const cnt = document.getElementById('channelCount');
+
+  const channelDefs = [
+    { key: 'telegram', icon: '&#x2708;', name: 'Telegram' },
+    { key: 'whatsapp', icon: '&#x1F4F1;', name: 'WhatsApp' },
+    { key: 'discord', icon: '&#x1F3AE;', name: 'Discord' },
+    { key: 'slack', icon: '&#x1F4BC;', name: 'Slack' },
+    { key: 'email', icon: '&#x2709;', name: 'Email (Maton)' }
+  ];
+
+  const cfgChannels = cfg?.channels || {};
+  const liveChannels = channels || {};
+  let enabledCount = 0;
+
+  const html = channelDefs.map(ch => {
+    const cfgCh = cfgChannels[ch.key];
+    const liveCh = liveChannels[ch.key];
+    const enabled = cfgCh?.enabled === true || liveCh?.connected === true;
+    if (enabled) enabledCount++;
+
+    const statusClass = enabled ? 'badge-green' : 'badge-red';
+    const statusText = enabled ? 'Connected' : liveCh?.error ? 'Error' : 'Disabled';
+
+    return `
+      <div class="item-row">
+        <div class="item-info">
+          <div class="item-avatar channel">${ch.icon}</div>
+          <div>
+            <div class="item-name">${ch.name}</div>
+            <div class="item-sub">${enabled ? (cfgCh?.streaming || 'active') : 'not configured'}</div>
+          </div>
+        </div>
+        <span class="item-status ${statusClass}">${statusText}</span>
+      </div>
+    `;
+  }).join('');
+
+  el.innerHTML = html;
+  cnt.textContent = enabledCount;
+}
+
+function renderModels(cfg) {
+  const el = document.getElementById('modelList');
+  const cnt = document.getElementById('modelCount');
+
+  if (!cfg) {
+    el.innerHTML = '<div class="item-sub">No data</div>';
+    cnt.textContent = '0';
+    return;
+  }
+
+  // Try to extract models from config
+  const models = cfg.models || [];
+  if (models.length === 0 && cfg._models) {
+    // Fallback to parsed models from proxy
+    models.push(...cfg._models);
+  }
+
+  cnt.textContent = models.length;
+
+  if (models.length === 0) {
+    el.innerHTML = '<div class="item-sub">Connect to see models</div>';
+    return;
+  }
+
+  const providerColors = {
+    openai: '#22c55e',
+    anthropic: '#f97316',
+    google: '#3b82f6',
+    nvidia: '#76b900',
+    moonshot: '#a855f7'
+  };
+
+  el.innerHTML = models.map(m => {
+    const provider = m.provider || 'unknown';
+    const color = providerColors[provider] || '#8892a4';
+
+    return `
+      <div class="item-row">
+        <div class="item-info">
+          <div class="item-avatar model" style="font-size:12px;color:${color};font-weight:600">${provider.slice(0,2).toUpperCase()}</div>
+          <div>
+            <div class="item-name">${esc(m.alias || m.id)}</div>
+            <div class="item-sub">${esc(m.id)}${m.context ? ` &middot; ${(m.context/1024).toFixed(0)}K ctx` : ''}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderSessions(status) {
+  const el = document.getElementById('sessionList');
+  const cnt = document.getElementById('sessionCount');
+
+  const sessions = status?.sessions || [];
+  cnt.textContent = sessions.length;
+
+  if (sessions.length === 0) {
+    el.innerHTML = '<div class="item-sub">No active sessions</div>';
+    return;
+  }
+
+  el.innerHTML = sessions.map(s => {
+    const pct = s.tokenUsage ? Math.min(100, (s.tokenUsage / s.tokenLimit) * 100) : 0;
+    const shortId = (s.id || '').slice(0, 8);
+    const ago = s.lastActivity ? timeAgo(new Date(s.lastActivity)) : '--';
+
+    return `
+      <div class="session-item">
+        <div class="session-header">
+          <span class="session-id">${esc(shortId)}...</span>
+          <span class="session-time">${ago}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-dim)">${esc(s.channel || 'direct')} &middot; ${s.tokenUsage || 0} tokens</div>
+        <div class="session-bar">
+          <div class="session-bar-fill" style="width:${pct}%;${pct > 80 ? 'background:var(--red)' : ''}"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ==================== TASK BOARD ====================
+function renderTasks() {
+  ['backlog', 'progress', 'done'].forEach(col => {
+    const colTasks = tasks.filter(t => t.col === col);
+    document.getElementById(`cnt-${col}`).textContent = colTasks.length;
+    document.getElementById(`tasks-${col}`).innerHTML = colTasks.map(t => `
+      <div class="task-card" draggable="true" ondragstart="dragStart(event, ${t.id})" data-id="${t.id}">
+        <span class="task-label label-${t.label}">${t.label}</span>
+        <div class="task-text">${esc(t.text)}</div>
+        ${t.notes ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px">${esc(t.notes)}</div>` : ''}
+        <div style="text-align:right;margin-top:4px">
+          <span style="cursor:pointer;font-size:12px;color:var(--red);opacity:0.6" onclick="deleteTask(${t.id})" title="Delete">&#x2715;</span>
+        </div>
+      </div>
+    `).join('');
+  });
+}
+
+function openTaskModal(col) {
+  if (col) document.getElementById('taskCol').value = col;
+  document.getElementById('taskTitle').value = '';
+  document.getElementById('taskNotes').value = '';
+  document.getElementById('taskModal').classList.add('active');
+  setTimeout(() => document.getElementById('taskTitle').focus(), 100);
+}
+
+function closeTaskModal() {
+  document.getElementById('taskModal').classList.remove('active');
+}
+
+function addTask() {
+  const text = document.getElementById('taskTitle').value.trim();
+  if (!text) return;
+  const id = Date.now();
+  tasks.push({
+    id,
+    text,
+    label: document.getElementById('taskLabel').value,
+    col: document.getElementById('taskCol').value,
+    notes: document.getElementById('taskNotes').value.trim()
+  });
+  saveTasks();
+  renderTasks();
+  closeTaskModal();
+}
+
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  saveTasks();
+  renderTasks();
+}
+
+// Drag & Drop
+let draggedId = null;
+
+function dragStart(e, id) {
+  draggedId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.classList.add('dragging');
+}
+
+function dragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+
+function dragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function dropTask(e, col) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (draggedId === null) return;
+  const task = tasks.find(t => t.id === draggedId);
+  if (task) {
+    task.col = col;
+    saveTasks();
+    renderTasks();
+  }
+  draggedId = null;
+}
+
+// ==================== QUICK ACTIONS ====================
+function logLine(text, cls) {
+  const log = document.getElementById('actionLog');
+  log.classList.add('visible');
+  const line = document.createElement('div');
+  line.className = `log-line ${cls || ''}`;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function actionHealth() {
+  logLine('Running health check...', 'info');
+  const res = await rpc('gateway.health');
+  if (res) {
+    logLine('Gateway health: OK', 'ok');
+    if (res.warnings) res.warnings.forEach(w => logLine(`Warning: ${w}`, 'err'));
+  } else {
+    logLine('Health check failed - cannot reach gateway', 'err');
+  }
+}
+
+async function actionChannels() {
+  logLine('Checking channel status...', 'info');
+  const res = await rpc('channels.status');
+  if (res) {
+    Object.entries(res).forEach(([k, v]) => {
+      logLine(`${k}: ${v.connected ? 'connected' : v.error || 'disconnected'}`, v.connected ? 'ok' : 'err');
+    });
+  } else {
+    logLine('Channel check failed', 'err');
+  }
+}
+
+async function actionCron() {
+  logLine('Fetching cron jobs...', 'info');
+  const res = await rpc('cron.list');
+  if (res && res.length > 0) {
+    res.forEach(j => logLine(`${j.name}: ${j.schedule} (${j.enabled ? 'enabled' : 'disabled'})`, 'ok'));
+  } else if (res) {
+    logLine('No cron jobs configured', 'info');
+  } else {
+    logLine('Failed to fetch cron jobs', 'err');
+  }
+}
+
+function actionRefresh() {
+  logLine('Forcing full refresh...', 'info');
+  refreshAll().then(() => logLine('Refresh complete', 'ok'));
+}
+
+// ==================== HELPERS ====================
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+function timeAgo(date) {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 60) return 'just now';
+  if (secs < 3600) return `${Math.floor(secs/60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs/3600)}h ago`;
+  return `${Math.floor(secs/86400)}d ago`;
+}
+
+// ==================== INIT ====================
+document.addEventListener('DOMContentLoaded', () => {
+  renderTasks();
+  if (config.proxyUrl && config.token) {
+    startPolling();
+  } else {
+    // Show helpful default state
+    document.getElementById('hGateway').textContent = 'Config needed';
+    document.getElementById('hGateway').className = 'health-value warn';
+    document.getElementById('agentList').innerHTML = '<div class="item-sub">Click Settings to connect</div>';
+    document.getElementById('channelList').innerHTML = '<div class="item-sub">Click Settings to connect</div>';
+    document.getElementById('modelList').innerHTML = '<div class="item-sub">Click Settings to connect</div>';
+    document.getElementById('sessionList').innerHTML = '<div class="item-sub">Click Settings to connect</div>';
+  }
+});
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+});
+
+// Keyboard shortcut
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay').forEach(o => o.classList.remove('active'));
+  }
+});
+</script>
+</body>
+</html>
