@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mission Control — Task Center</title>
+<style>
+:root {
+  --bg: #08090d;
+  --surface: #0f1219;
+  --surface2: #161b26;
+  --surface3: #1c2333;
+  --border: #1e2a3a;
+  --border-hover: #2d3f55;
+  --text: #e2e8f0;
+  --text-dim: #7a8599;
+  --text-muted: #4a5568;
+  --accent: #3b82f6;
+  --accent-dim: #3b82f630;
+  --green: #22c55e;
+  --green-dim: #22c55e20;
+  --yellow: #eab308;
+  --yellow-dim: #eab30820;
+  --red: #ef4444;
+  --red-dim: #ef444420;
+  --purple: #a855f7;
+  --purple-dim: #a855f720;
+  --cyan: #06b6d4;
+  --cyan-dim: #06b6d420;
+  --orange: #f97316;
+  --orange-dim: #f9731620;
+  --pink: #ec4899;
+  --radius: 10px;
+  --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ===== HEADER ===== */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-left h1 { font-size: 18px; font-weight: 600; }
+.header-left h1 span { color: var(--accent); }
+.header-left .sep { color: var(--text-muted); font-weight: 300; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.conn { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.conn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
+.conn-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.conn-dot.wait { background: var(--yellow); animation: pulse 1.5s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+
+.btn { padding: 7px 14px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 13px; cursor: pointer; transition: .15s; font-family: var(--font); }
+.btn:hover { border-color: var(--border-hover); background: var(--surface3); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { filter: brightness(1.15); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-ghost { background: transparent; border-color: transparent; }
+.btn-ghost:hover { background: var(--surface2); }
+.btn-danger { color: var(--red); }
+.btn-danger:hover { background: var(--red-dim); }
+
+/* ===== STATS BAR ===== */
+.stats-bar {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  overflow-x: auto;
+}
+.stat {
+  flex: 1; min-width: 140px;
+  padding: 14px 20px;
+  border-right: 1px solid var(--border);
+  text-align: center;
+}
+.stat:last-child { border-right: none; }
+.stat-value { font-size: 28px; font-weight: 700; line-height: 1.1; }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); margin-top: 2px; }
+
+/* ===== VIEW TABS ===== */
+.view-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.view-tab {
+  padding: 6px 14px; border-radius: 6px;
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; color: var(--text-dim);
+  border: 1px solid transparent;
+  transition: .15s;
+}
+.view-tab:hover { color: var(--text); background: var(--surface2); }
+.view-tab.active { color: var(--accent); background: var(--accent-dim); border-color: var(--accent); }
+.view-spacer { flex: 1; }
+.search-box {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 6px 12px; color: var(--text); font-size: 13px; width: 220px;
+  font-family: var(--font);
+}
+.search-box:focus { outline: none; border-color: var(--accent); }
+
+/* ===== MAIN LAYOUT ===== */
+.main { display: flex; min-height: calc(100vh - 160px); }
+
+/* Sidebar */
+.sidebar {
+  width: 220px; min-width: 220px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  padding: 16px 0;
+  overflow-y: auto;
+}
+.sidebar-section { padding: 0 16px; margin-bottom: 16px; }
+.sidebar-title { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 8px; font-weight: 600; }
+.filter-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; color: var(--text-dim); transition: .1s;
+}
+.filter-item:hover { background: var(--surface2); color: var(--text); }
+.filter-item.active { background: var(--accent-dim); color: var(--accent); }
+.filter-count { font-size: 11px; background: var(--surface2); padding: 1px 7px; border-radius: 10px; min-width: 22px; text-align: center; }
+.filter-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+
+/* Content */
+.content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+/* ===== BOARD VIEW ===== */
+.board { display: flex; gap: 14px; align-items: flex-start; overflow-x: auto; min-height: 400px; }
+.board-col { width: 300px; min-width: 280px; flex-shrink: 0; }
+.col-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; margin-bottom: 8px;
+  border-radius: 8px; background: var(--surface);
+  border: 1px solid var(--border);
+}
+.col-icon { font-size: 14px; }
+.col-title { font-size: 13px; font-weight: 600; flex: 1; }
+.col-count { font-size: 11px; color: var(--text-dim); background: var(--surface2); padding: 2px 8px; border-radius: 10px; }
+
+.col-body { min-height: 60px; padding-bottom: 4px; }
+.col-body.drag-over { border-radius: 8px; outline: 2px dashed var(--accent); outline-offset: -2px; }
+
+/* ===== TASK CARD ===== */
+.task-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: .15s;
+  position: relative;
+}
+.task-card:hover { border-color: var(--border-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+.task-card.dragging { opacity: .4; }
+.task-card.expanded { border-color: var(--accent); }
+
+.task-top { display: flex; align-items: flex-start; gap: 8px; }
+.task-checkbox {
+  width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border);
+  flex-shrink: 0; margin-top: 1px; cursor: pointer; transition: .15s;
+  display: flex; align-items: center; justify-content: center; font-size: 10px; color: transparent;
+}
+.task-checkbox:hover { border-color: var(--green); }
+.task-checkbox.checked { background: var(--green); border-color: var(--green); color: #fff; }
+
+.task-title { font-size: 14px; font-weight: 500; line-height: 1.4; flex: 1; }
+.task-title.done-text { text-decoration: line-through; color: var(--text-dim); }
+
+.task-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+.tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 5px; font-weight: 500;
+}
+.tag-urgent { background: var(--red-dim); color: var(--red); }
+.tag-high { background: var(--orange-dim); color: var(--orange); }
+.tag-medium { background: var(--yellow-dim); color: var(--yellow); }
+.tag-low { background: var(--surface2); color: var(--text-dim); }
+
+.tag-label { background: var(--purple-dim); color: var(--purple); }
+.tag-assignee { background: var(--cyan-dim); color: var(--cyan); }
+
+/* ===== LIST VIEW ===== */
+.list-view { width: 100%; }
+.list-group-title {
+  font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-dim);
+  padding: 12px 0 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+
+.list-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 7px;
+  cursor: pointer; transition: .1s;
+}
+.list-row:hover { background: var(--surface); }
+.list-row .task-title { font-size: 14px; flex: 1; }
+.list-meta-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.list-time { font-size: 11px; color: var(--text-muted); min-width: 50px; text-align: right; }
+
+/* ===== DETAIL PANEL ===== */
+.detail-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.6); z-index: 200;
+  justify-content: flex-end;
+}
+.detail-overlay.active { display: flex; }
+
+.detail-panel {
+  width: 520px; max-width: 90vw; height: 100%;
+  background: var(--surface); border-left: 1px solid var(--border);
+  overflow-y: auto; padding: 24px;
+  animation: slideIn .2s ease;
+}
+@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+.detail-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+.detail-close { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 4px; line-height: 1; }
+.detail-close:hover { color: var(--text); }
+
+.detail-title {
+  font-size: 20px; font-weight: 600; flex: 1;
+  background: none; border: none; color: var(--text);
+  font-family: var(--font); width: 100%;
+  outline: none; resize: none; line-height: 1.3;
+}
+.detail-title:focus { border-bottom: 2px solid var(--accent); }
+
+.detail-field { margin-bottom: 16px; }
+.detail-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 4px; font-weight: 600; }
+
+.detail-select, .detail-input, .detail-textarea {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 12px; border-radius: 7px;
+  font-size: 14px; font-family: var(--font);
+}
+.detail-select:focus, .detail-input:focus, .detail-textarea:focus { outline: none; border-color: var(--accent); }
+.detail-textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
+
+.detail-row { display: flex; gap: 10px; }
+.detail-row > * { flex: 1; }
+
+.detail-actions { display: flex; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.detail-time { font-size: 11px; color: var(--text-muted); margin-top: 12px; }
+
+/* ===== SUGGESTIONS ===== */
+.suggestion-card {
+  background: linear-gradient(135deg, var(--surface), var(--surface2));
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--purple);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  transition: .15s;
+}
+.suggestion-card:hover { border-color: var(--border-hover); }
+.sug-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.sug-desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; margin-bottom: 10px; }
+.sug-actions { display: flex; gap: 8px; }
+.sug-meta { display: flex; gap: 6px; margin-bottom: 8px; }
+
+/* ===== ADD TASK MODAL ===== */
+.modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:300; align-items:center; justify-content:center; }
+.modal-bg.active { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; width:500px; max-width:92vw; }
+.modal h2 { font-size:16px; margin-bottom:16px; }
+.modal label { display:block; font-size:12px; color:var(--text-dim); margin-bottom:4px; margin-top:12px; }
+.modal input, .modal select, .modal textarea {
+  width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+  padding:8px 12px; border-radius:7px; font-size:14px; font-family:var(--font);
+}
+.modal textarea { min-height:60px; resize:vertical; }
+.modal input:focus, .modal select:focus, .modal textarea:focus { outline:none; border-color:var(--accent); }
+.modal-row { display:flex; gap:10px; }
+.modal-row > div { flex:1; }
+.modal-footer { display:flex; gap:8px; margin-top:20px; justify-content:flex-end; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .board { flex-direction: column; }
+  .board-col { width: 100%; min-width: 0; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <h1><a href="index.html" style="color:var(--text);text-decoration:none">Mission Control</a> <span class="sep">/</span> <span>Tasks</span></h1>
+  </div>
+  <div class="header-right">
+    <div class="conn">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connText">--</span>
+    </div>
+    <button class="btn" onclick="openSettings()">Settings</button>
+    <button class="btn btn-primary" onclick="openAddModal()">+ New Task</button>
+  </div>
+</header>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat"><div class="stat-value" id="sTotal" style="color:var(--text)">-</div><div class="stat-label">Total</div></div>
+  <div class="stat"><div class="stat-value" id="sBacklog" style="color:var(--text-dim)">-</div><div class="stat-label">Backlog</div></div>
+  <div class="stat"><div class="stat-value" id="sProgress" style="color:var(--yellow)">-</div><div class="stat-label">In Progress</div></div>
+  <div class="stat"><div class="stat-value" id="sReview" style="color:var(--cyan)">-</div><div class="stat-label">Review</div></div>
+  <div class="stat"><div class="stat-value" id="sDone" style="color:var(--green)">-</div><div class="stat-label">Done</div></div>
+  <div class="stat"><div class="stat-value" id="sSuggestions" style="color:var(--purple)">-</div><div class="stat-label">Suggestions</div></div>
+</div>
+
+<!-- VIEW TABS -->
+<div class="view-bar">
+  <div class="view-tab active" data-view="board" onclick="setView('board')">Board</div>
+  <div class="view-tab" data-view="list" onclick="setView('list')">List</div>
+  <div class="view-tab" data-view="suggestions" onclick="setView('suggestions')">Suggestions</div>
+  <div class="view-spacer"></div>
+  <input class="search-box" placeholder="Search tasks..." oninput="onSearch(this.value)" id="searchInput">
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Status</div>
+      <div class="filter-item active" data-filter="all" onclick="setFilter('status','all')">All <span class="filter-count" id="fAll">0</span></div>
+      <div class="filter-item" data-filter="backlog" onclick="setFilter('status','backlog')"><span class="filter-dot" style="background:var(--text-dim)"></span>Backlog <span class="filter-count" id="fBacklog">0</span></div>
+      <div class="filter-item" data-filter="inprogress" onclick="setFilter('status','inprogress')"><span class="filter-dot" style="background:var(--yellow)"></span>In Progress <span class="filter-count" id="fProgress">0</span></div>
+      <div class="filter-item" data-filter="review" onclick="setFilter('status','review')"><span class="filter-dot" style="background:var(--cyan)"></span>Review <span class="filter-count" id="fReview">0</span></div>
+      <div class="filter-item" data-filter="done" onclick="setFilter('status','done')"><span class="filter-dot" style="background:var(--green)"></span>Done <span class="filter-count" id="fDone">0</span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Priority</div>
+      <div class="filter-item" data-filter="urgent" onclick="setFilter('priority','urgent')"><span class="filter-dot" style="background:var(--red)"></span>Urgent</div>
+      <div class="filter-item" data-filter="high" onclick="setFilter('priority','high')"><span class="filter-dot" style="background:var(--orange)"></span>High</div>
+      <div class="filter-item" data-filter="medium" onclick="setFilter('priority','medium')"><span class="filter-dot" style="background:var(--yellow)"></span>Medium</div>
+      <div class="filter-item" data-filter="low" onclick="setFilter('priority','low')"><span class="filter-dot" style="background:var(--text-muted)"></span>Low</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Labels</div>
+      <div id="labelFilters"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Assignee</div>
+      <div id="assigneeFilters"></div>
+    </div>
+  </nav>
+
+  <!-- CONTENT -->
+  <div class="content" id="mainContent"></div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-panel" id="detailPanel"></div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-bg" id="addModal" onclick="if(event.target===this)closeAddModal()">
+  <div class="modal">
+    <h2>New Task</h2>
+    <label>Title</label>
+    <input id="mTitle" placeholder="What needs to be done?">
+    <label>Description</label>
+    <textarea id="mDesc" rows="3" placeholder="Details, context, acceptance criteria..."></textarea>
+    <div class="modal-row">
+      <div><label>Status</label><select id="mStatus"><option value="backlog">Backlog</option><option value="inprogress">In Progress</option><option value="review">Review</option></select></div>
+      <div><label>Priority</label><select id="mPriority"><option value="medium">Medium</option><option value="urgent">Urgent</option><option value="high">High</option><option value="low">Low</option></select></div>
+    </div>
+    <div class="modal-row">
+      <div><label>Assignee</label><input id="mAssignee" placeholder="e.g. Wizard, Cris"></div>
+      <div><label>Label</label><select id="mLabel"><option value="ops">Ops</option><option value="sales">Sales</option><option value="marketing">Marketing</option><option value="service">Service</option><option value="infra">Infra</option><option value="strategy">Strategy</option><option value="automation">Automation</option><option value="channels">Channels</option><option value="agents">Agents</option></select></div>
+    </div>
+    <label>Notes</label>
+    <textarea id="mNotes" rows="2" placeholder="Additional notes..."></textarea>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeAddModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createTask()">Create Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-bg" id="settingsModal" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <h2>Connection Settings</h2>
+    <label>Proxy URL</label>
+    <input id="sProxy" placeholder="http://localhost:3100">
+    <label>Gateway Token</label>
+    <input id="sToken" type="password">
+    <label>Auto-refresh (seconds)</label>
+    <input id="sInterval" type="number" value="8" min="3" max="60">
+    <div class="modal-footer">
+      <button class="btn" onclick="closeSettings()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+const CONF_KEY = 'oc_task_config';
+let conf = JSON.parse(localStorage.getItem(CONF_KEY) || 'null') || { proxyUrl: 'http://localhost:3100', token: '', interval: 8 };
+let allTasks = [];
+let suggestions = [];
+let currentView = 'board';
+let filterType = 'status';
+let filterValue = 'all';
+let searchQuery = '';
+let refreshTimer = null;
+
+// ===== API =====
+async function api(path, opts = {}) {
+  if (!conf.proxyUrl || !conf.token) return null;
+  try {
+    const res = await fetch(`${conf.proxyUrl}${path}`, {
+      ...opts,
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${conf.token}`, ...(opts.headers || {}) }
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    return await res.json();
+  } catch (e) { console.warn(`API ${path}:`, e.message); return null; }
+}
+
+// ===== DATA =====
+async function loadAll() {
+  const [health, data] = await Promise.all([api('/health'), api('/tasks')]);
+  const dot = document.getElementById('connDot');
+  const txt = document.getElementById('connText');
+  if (health?.gatewayConnected) {
+    dot.className = 'conn-dot ok'; txt.textContent = 'Live';
+  } else if (health) {
+    dot.className = 'conn-dot wait'; txt.textContent = 'Proxy only';
+  } else {
+    dot.className = 'conn-dot'; txt.textContent = 'Offline';
+  }
+
+  if (data) {
+    allTasks = data.tasks || [];
+    suggestions = data.suggestions || [];
+  }
+  updateStats();
+  updateFilters();
+  renderView();
+}
+
+function updateStats() {
+  const t = allTasks;
+  document.getElementById('sTotal').textContent = t.length;
+  document.getElementById('sBacklog').textContent = t.filter(x => x.status === 'backlog').length;
+  document.getElementById('sProgress').textContent = t.filter(x => x.status === 'inprogress').length;
+  document.getElementById('sReview').textContent = t.filter(x => x.status === 'review').length;
+  document.getElementById('sDone').textContent = t.filter(x => x.status === 'done').length;
+  document.getElementById('sSuggestions').textContent = suggestions.length;
+  // Sidebar counts
+  document.getElementById('fAll').textContent = t.length;
+  document.getElementById('fBacklog').textContent = t.filter(x => x.status === 'backlog').length;
+  document.getElementById('fProgress').textContent = t.filter(x => x.status === 'inprogress').length;
+  document.getElementById('fReview').textContent = t.filter(x => x.status === 'review').length;
+  document.getElementById('fDone').textContent = t.filter(x => x.status === 'done').length;
+}
+
+function updateFilters() {
+  const labels = [...new Set(allTasks.map(t => t.label).filter(Boolean))];
+  const assignees = [...new Set(allTasks.map(t => t.assignee).filter(Boolean))];
+  document.getElementById('labelFilters').innerHTML = labels.map(l =>
+    `<div class="filter-item" onclick="setFilter('label','${esc(l)}')">${esc(l)}</div>`
+  ).join('');
+  document.getElementById('assigneeFilters').innerHTML = assignees.map(a =>
+    `<div class="filter-item" onclick="setFilter('assignee','${esc(a)}')">${esc(a)}</div>`
+  ).join('');
+}
+
+function filteredTasks() {
+  let t = allTasks;
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    t = t.filter(x => x.title.toLowerCase().includes(q) || (x.description||'').toLowerCase().includes(q) || (x.assignee||'').toLowerCase().includes(q));
+  }
+  if (filterValue !== 'all') {
+    if (filterType === 'status') t = t.filter(x => x.status === filterValue);
+    else if (filterType === 'priority') t = t.filter(x => x.priority === filterValue);
+    else if (filterType === 'label') t = t.filter(x => x.label === filterValue);
+    else if (filterType === 'assignee') t = t.filter(x => x.assignee === filterValue);
+  }
+  return t;
+}
+
+// ===== VIEWS =====
+function setView(v) {
+  currentView = v;
+  document.querySelectorAll('.view-tab').forEach(el => el.classList.toggle('active', el.dataset.view === v));
+  renderView();
+}
+
+function setFilter(type, value) {
+  filterType = type; filterValue = value;
+  document.querySelectorAll('.filter-item').forEach(el => el.classList.remove('active'));
+  const active = document.querySelector(`.filter-item[data-filter="${value}"]`);
+  if (active) active.classList.add('active');
+  renderView();
+}
+
+function onSearch(q) { searchQuery = q; renderView(); }
+
+function renderView() {
+  const el = document.getElementById('mainContent');
+  if (currentView === 'board') renderBoard(el);
+  else if (currentView === 'list') renderList(el);
+  else if (currentView === 'suggestions') renderSuggestions(el);
+}
+
+// ===== BOARD VIEW =====
+const COLS = [
+  { id: 'backlog', title: 'Backlog', icon: '&#x1F4CB;', color: 'var(--text-dim)' },
+  { id: 'inprogress', title: 'In Progress', icon: '&#x1F525;', color: 'var(--yellow)' },
+  { id: 'review', title: 'Review', icon: '&#x1F50D;', color: 'var(--cyan)' },
+  { id: 'done', title: 'Done', icon: '&#x2705;', color: 'var(--green)' }
+];
+
+function renderBoard(el) {
+  const tasks = filteredTasks();
+  el.innerHTML = '<div class="board">' + COLS.map(col => {
+    const colTasks = tasks.filter(t => t.status === col.id);
+    return `<div class="board-col">
+      <div class="col-header" style="border-left:3px solid ${col.color}">
+        <span class="col-icon">${col.icon}</span>
+        <span class="col-title">${col.title}</span>
+        <span class="col-count">${colTasks.length}</span>
+      </div>
+      <div class="col-body" id="col-${col.id}" data-col="${col.id}"
+           ondrop="dropTask(event,'${col.id}')" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+        ${colTasks.map(t => taskCard(t)).join('')}
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function taskCard(t) {
+  const isDone = t.status === 'done';
+  return `<div class="task-card${isDone ? ' done' : ''}" draggable="true"
+    ondragstart="dragStart(event,'${t.id}')" onclick="openDetail('${t.id}')">
+    <div class="task-top">
+      <div class="task-checkbox${isDone ? ' checked' : ''}" onclick="event.stopPropagation();toggleDone('${t.id}')">${isDone ? '&#x2713;' : ''}</div>
+      <div class="task-title${isDone ? ' done-text' : ''}">${esc(t.title)}</div>
+    </div>
+    ${t.description ? `<div style="font-size:12px;color:var(--text-dim);margin:6px 0 0 26px;line-height:1.4">${esc(t.description).slice(0,80)}${t.description.length>80?'...':''}</div>` : ''}
+    <div class="task-meta" style="margin-left:26px">
+      <span class="tag tag-${t.priority}">${t.priority}</span>
+      ${t.label ? `<span class="tag tag-label">${esc(t.label)}</span>` : ''}
+      ${t.assignee ? `<span class="tag tag-assignee">${esc(t.assignee)}</span>` : ''}
+    </div>
+  </div>`;
+}
+
+// ===== LIST VIEW =====
+function renderList(el) {
+  const tasks = filteredTasks();
+  const groups = {};
+  COLS.forEach(c => groups[c.id] = []);
+  tasks.forEach(t => { if (groups[t.status]) groups[t.status].push(t); });
+
+  let html = '<div class="list-view">';
+  COLS.forEach(col => {
+    if (groups[col.id].length === 0) return;
+    html += `<div class="list-group-title" style="color:${col.color}">${col.icon} ${col.title} (${groups[col.id].length})</div>`;
+    groups[col.id].forEach(t => {
+      html += `<div class="list-row" onclick="openDetail('${t.id}')">
+        <div class="task-checkbox${t.status==='done'?' checked':''}" onclick="event.stopPropagation();toggleDone('${t.id}')">${t.status==='done'?'&#x2713;':''}</div>
+        <div class="task-title${t.status==='done'?' done-text':''}">${esc(t.title)}</div>
+        <div class="list-meta-right">
+          <span class="tag tag-${t.priority}">${t.priority}</span>
+          ${t.label ? `<span class="tag tag-label">${esc(t.label)}</span>` : ''}
+          ${t.assignee ? `<span class="tag tag-assignee">${esc(t.assignee)}</span>` : ''}
+          <span class="list-time">${timeAgo(t.updatedAt)}</span>
+        </div>
+      </div>`;
+    });
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ===== SUGGESTIONS VIEW =====
+function renderSuggestions(el) {
+  if (suggestions.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--text-dim)"><div style="font-size:32px;margin-bottom:12px">&#x2728;</div><div>No pending suggestions</div></div>';
+    return;
+  }
+  el.innerHTML = suggestions.map(s => `
+    <div class="suggestion-card">
+      <div class="sug-meta">
+        <span class="tag tag-label">${esc(s.label || '')}</span>
+        <span class="tag tag-${s.priority || 'medium'}">${s.priority || 'medium'}</span>
+      </div>
+      <div class="sug-title">${esc(s.title)}</div>
+      <div class="sug-desc">${esc(s.description)}</div>
+      <div class="sug-actions">
+        <button class="btn btn-sm btn-primary" onclick="acceptSuggestion('${s.id}')">Accept &rarr; Backlog</button>
+        <button class="btn btn-sm btn-danger" onclick="dismissSuggestion('${s.id}')">Dismiss</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===== DETAIL PANEL =====
+function openDetail(id) {
+  const t = allTasks.find(x => x.id === id);
+  if (!t) return;
+  const panel = document.getElementById('detailPanel');
+  panel.innerHTML = `
+    <div class="detail-header">
+      <button class="detail-close" onclick="closeDetail()">&times;</button>
+      <textarea class="detail-title" id="dTitle" rows="1" oninput="autoResize(this)">${esc(t.title)}</textarea>
+    </div>
+    <div class="detail-row">
+      <div class="detail-field">
+        <div class="detail-label">Status</div>
+        <select class="detail-select" id="dStatus">
+          <option value="backlog"${t.status==='backlog'?' selected':''}>Backlog</option>
+          <option value="inprogress"${t.status==='inprogress'?' selected':''}>In Progress</option>
+          <option value="review"${t.status==='review'?' selected':''}>Review</option>
+          <option value="done"${t.status==='done'?' selected':''}>Done</option>
+        </select>
+      </div>
+      <div class="detail-field">
+        <div class="detail-label">Priority</div>
+        <select class="detail-select" id="dPriority">
+          <option value="urgent"${t.priority==='urgent'?' selected':''}>Urgent</option>
+          <option value="high"${t.priority==='high'?' selected':''}>High</option>
+          <option value="medium"${t.priority==='medium'?' selected':''}>Medium</option>
+          <option value="low"${t.priority==='low'?' selected':''}>Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div class="detail-field">
+        <div class="detail-label">Assignee</div>
+        <input class="detail-input" id="dAssignee" value="${esc(t.assignee||'')}">
+      </div>
+      <div class="detail-field">
+        <div class="detail-label">Label</div>
+        <select class="detail-select" id="dLabel">
+          ${['ops','sales','marketing','service','infra','strategy','automation','channels','agents'].map(l =>
+            `<option value="${l}"${t.label===l?' selected':''}>${l}</option>`
+          ).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-label">Description</div>
+      <textarea class="detail-textarea" id="dDesc">${esc(t.description||'')}</textarea>
+    </div>
+    <div class="detail-field">
+      <div class="detail-label">Notes</div>
+      <textarea class="detail-textarea" id="dNotes" style="min-height:70px">${esc(t.notes||'')}</textarea>
+    </div>
+    <div class="detail-actions">
+      <button class="btn btn-primary" onclick="saveDetail('${t.id}')">Save Changes</button>
+      <button class="btn btn-danger" onclick="deleteTask('${t.id}')">Delete</button>
+      <div style="flex:1"></div>
+      <button class="btn" onclick="closeDetail()">Close</button>
+    </div>
+    <div class="detail-time">
+      Created: ${new Date(t.createdAt).toLocaleString()}<br>
+      Updated: ${new Date(t.updatedAt).toLocaleString()}
+      ${t.completedAt ? '<br>Completed: ' + new Date(t.completedAt).toLocaleString() : ''}
+    </div>
+  `;
+  document.getElementById('detailOverlay').classList.add('active');
+  autoResize(document.getElementById('dTitle'));
+}
+
+function closeDetail() { document.getElementById('detailOverlay').classList.remove('active'); }
+
+function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+
+async function saveDetail(id) {
+  await api(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({
+    title: document.getElementById('dTitle').value,
+    status: document.getElementById('dStatus').value,
+    priority: document.getElementById('dPriority').value,
+    assignee: document.getElementById('dAssignee').value,
+    label: document.getElementById('dLabel').value,
+    description: document.getElementById('dDesc').value,
+    notes: document.getElementById('dNotes').value
+  })});
+  closeDetail();
+  await loadAll();
+}
+
+async function deleteTask(id) {
+  if (!confirm('Delete this task?')) return;
+  await api(`/tasks/${id}`, { method: 'DELETE' });
+  closeDetail();
+  await loadAll();
+}
+
+async function toggleDone(id) {
+  const t = allTasks.find(x => x.id === id);
+  if (!t) return;
+  const newStatus = t.status === 'done' ? 'backlog' : 'done';
+  await api(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
+  await loadAll();
+}
+
+// ===== DRAG & DROP =====
+let dragId = null;
+function dragStart(e, id) { dragId = id; e.dataTransfer.effectAllowed = 'move'; e.target.classList.add('dragging'); }
+async function dropTask(e, col) {
+  e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+  if (!dragId) return;
+  await api(`/tasks/${dragId}`, { method: 'PATCH', body: JSON.stringify({ status: col }) });
+  dragId = null;
+  await loadAll();
+}
+
+// ===== CREATE TASK =====
+function openAddModal(status) {
+  if (status) document.getElementById('mStatus').value = status;
+  document.getElementById('mTitle').value = '';
+  document.getElementById('mDesc').value = '';
+  document.getElementById('mNotes').value = '';
+  document.getElementById('mAssignee').value = '';
+  document.getElementById('addModal').classList.add('active');
+  setTimeout(() => document.getElementById('mTitle').focus(), 100);
+}
+function closeAddModal() { document.getElementById('addModal').classList.remove('active'); }
+
+async function createTask() {
+  const title = document.getElementById('mTitle').value.trim();
+  if (!title) return;
+  await api('/tasks', { method: 'POST', body: JSON.stringify({
+    title,
+    description: document.getElementById('mDesc').value.trim(),
+    status: document.getElementById('mStatus').value,
+    priority: document.getElementById('mPriority').value,
+    assignee: document.getElementById('mAssignee').value.trim(),
+    label: document.getElementById('mLabel').value,
+    notes: document.getElementById('mNotes').value.trim()
+  })});
+  closeAddModal();
+  await loadAll();
+}
+
+// ===== SUGGESTIONS =====
+async function acceptSuggestion(id) {
+  await api(`/suggestions/${id}`, { method: 'POST', body: JSON.stringify({ action: 'accept' }) });
+  await loadAll();
+}
+
+async function dismissSuggestion(id) {
+  await api(`/suggestions/${id}`, { method: 'POST', body: JSON.stringify({ action: 'dismiss' }) });
+  await loadAll();
+}
+
+// ===== SETTINGS =====
+function openSettings() {
+  document.getElementById('sProxy').value = conf.proxyUrl;
+  document.getElementById('sToken').value = conf.token;
+  document.getElementById('sInterval').value = conf.interval;
+  document.getElementById('settingsModal').classList.add('active');
+}
+function closeSettings() { document.getElementById('settingsModal').classList.remove('active'); }
+function saveSettings() {
+  conf.proxyUrl = document.getElementById('sProxy').value.replace(/\/+$/, '');
+  conf.token = document.getElementById('sToken').value;
+  conf.interval = parseInt(document.getElementById('sInterval').value) || 8;
+  localStorage.setItem(CONF_KEY, JSON.stringify(conf));
+  closeSettings();
+  startPolling();
+}
+
+// ===== HELPERS =====
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function timeAgo(d) {
+  if (!d) return '--';
+  const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  if (s < 60) return 'now';
+  if (s < 3600) return `${Math.floor(s/60)}m`;
+  if (s < 86400) return `${Math.floor(s/3600)}h`;
+  return `${Math.floor(s/86400)}d`;
+}
+
+function startPolling() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  loadAll();
+  refreshTimer = setInterval(loadAll, conf.interval * 1000);
+}
+
+// ===== KEYBOARD =====
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeDetail(); closeAddModal(); closeSettings();
+  }
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') {
+    e.preventDefault(); openAddModal();
+  }
+});
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+  if (conf.proxyUrl && conf.token) {
+    startPolling();
+  } else {
+    document.getElementById('mainContent').innerHTML = '<div style="text-align:center;padding:80px 20px;color:var(--text-dim)"><div style="font-size:40px;margin-bottom:16px">&#x1F9D9;</div><div style="font-size:18px;margin-bottom:8px">Welcome to Task Center</div><div>Click <b>Settings</b> to connect to your proxy</div></div>';
+  }
+});
+</script>
+</body>
+</html>

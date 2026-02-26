@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "lastModified": "2026-02-26T04:16:12.585Z",
+  "tasks": [
+    {
+      "id": "seed-1",
+      "title": "Cotizar kit levante Toyota 4Runner",
+      "description": "Buscar proveedores, comparar precios y tiempos de entrega para kit de levante completo.",
+      "status": "backlog",
+      "priority": "high",
+      "assignee": "Wizard",
+      "label": "ops",
+      "createdAt": "2026-02-25T12:00:00Z",
+      "updatedAt": "2026-02-25T12:00:00Z",
+      "notes": ""
+    },
+    {
+      "id": "seed-2",
+      "title": "Responder lead WhatsApp + agendar inspección",
+      "description": "Contactar lead entrante, responder consulta y agendar visita de inspección del vehículo.",
+      "status": "backlog",
+      "priority": "urgent",
+      "assignee": "Ritoque Assistant",
+      "label": "sales",
+      "createdAt": "2026-02-25T12:00:00Z",
+      "updatedAt": "2026-02-25T12:00:00Z",
+      "notes": ""
+    },
+    {
+      "id": "seed-3",
+      "title": "Crear grid Instagram marzo",
+      "description": "Diseñar el calendario de contenido de Instagram para marzo con fotos de proyectos y testimonios.",
+      "status": "inprogress",
+      "priority": "medium",
+      "assignee": "Marketing Engine",
+      "label": "marketing",
+      "createdAt": "2026-02-25T12:00:00Z",
+      "updatedAt": "2026-02-25T12:00:00Z",
+      "notes": ""
+    },
+    {
+      "id": "seed-4",
+      "title": "Revisar proveedor Lamartine - condiciones envío",
+      "description": "Verificar condiciones de envío, costos y tiempos con proveedor Lamartine.",
+      "status": "review",
+      "priority": "low",
+      "assignee": "Cristóbal",
+      "label": "ops",
+      "createdAt": "2026-02-25T12:00:00Z",
+      "updatedAt": "2026-02-25T12:00:00Z",
+      "notes": ""
+    },
+    {
+      "id": "seed-5",
+      "title": "Instalación kit levante — F150 Raptor",
+      "description": "Kit de levante instalado exitosamente en Ford F150 Raptor. Cliente satisfecho.",
+      "status": "done",
+      "priority": "high",
+      "assignee": "Juan",
+      "label": "service",
+      "createdAt": "2026-02-25T10:00:00Z",
+      "updatedAt": "2026-02-25T18:00:00Z",
+      "completedAt": "2026-02-25T18:00:00Z",
+      "notes": "Cliente muy contento con el resultado"
+    },
+    {
+      "id": "seed-6",
+      "title": "Configurar Mission Control Dashboard",
+      "description": "Dashboard web para monitorear todos los agentes, canales y tareas del negocio.",
+      "status": "inprogress",
+      "priority": "high",
+      "assignee": "Claude",
+      "label": "infra",
+      "createdAt": "2026-02-26T03:00:00Z",
+      "updatedAt": "2026-02-26T04:00:00Z",
+      "notes": ""
+    },
+    {
+      "id": "seed-7",
+      "title": "Definir pilares del negocio 4x4",
+      "description": "Cris necesita detallar los pilares principales: servicios, ventas, marketing, operaciones, etc.",
+      "status": "backlog",
+      "priority": "urgent",
+      "assignee": "Cris",
+      "label": "strategy",
+      "createdAt": "2026-02-25T12:00:00Z",
+      "updatedAt": "2026-02-25T12:00:00Z",
+      "notes": "Paso crítico para la estructura de agentes"
+    },
+    {
+      "id": "seed-8",
+      "title": "Configurar cron jobs de health checks",
+      "description": "Programar checks automáticos de salud del sistema y canales cada hora.",
+      "status": "backlog",
+      "priority": "medium",
+      "assignee": "Wizard",
+      "label": "infra",
+      "createdAt": "2026-02-26T03:00:00Z",
+      "updatedAt": "2026-02-26T03:00:00Z",
+      "notes": ""
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "sug-1",
+      "title": "Activar canal WhatsApp",
+      "description": "WhatsApp está deshabilitado. Activarlo permitiría atender leads directamente desde el canal más usado en Chile.",
+      "priority": "high",
+      "label": "channels"
+    },
+    {
+      "id": "sug-2",
+      "title": "Crear agente de Marketing dedicado",
+      "description": "Un agente especializado en contenido, redes sociales y campañas publicitarias para el negocio 4x4.",
+      "priority": "medium",
+      "label": "agents"
+    },
+    {
+      "id": "sug-3",
+      "title": "Configurar Email con Maton",
+      "description": "Habilitar canal de email para comunicación profesional con clientes y proveedores.",
+      "priority": "medium",
+      "label": "channels"
+    },
+    {
+      "id": "sug-4",
+      "title": "Implementar sistema de cotizaciones automáticas",
+      "description": "Skill que genere cotizaciones PDF para servicios 4x4 a partir de una conversación.",
+      "priority": "low",
+      "label": "automation"
+    },
+    {
+      "id": "sug-5",
+      "title": "Backup automático de datos OpenClaw",
+      "description": "Script cron que haga backup diario de la configuración, memorias y sesiones.",
+      "priority": "high",
+      "label": "infra"
+    }
+  ]
+}
