@@ -406,7 +406,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   <div class="modal">
     <h2>Connection Settings</h2>
     <label>Proxy URL</label>
-    <input id="sProxy" placeholder="http://localhost:3100">
+    <input id="sProxy" placeholder="http://187.77.50.148:3100">
     <label>Gateway Token</label>
     <input id="sToken" type="password">
     <label>Auto-refresh (seconds)</label>
@@ -421,7 +421,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 <script>
 // ===== STATE =====
 const CONF_KEY = 'oc_task_config';
-let conf = JSON.parse(localStorage.getItem(CONF_KEY) || 'null') || { proxyUrl: 'http://localhost:3100', token: '', interval: 8 };
+let conf = JSON.parse(localStorage.getItem(CONF_KEY) || 'null') || { proxyUrl: 'http://187.77.50.148:3100', token: 'fcoNurBnuE43l4OEved9nkG84PlnuGWH', interval: 8 };
 let allTasks = [];
 let suggestions = [];
 let currentView = 'board';
