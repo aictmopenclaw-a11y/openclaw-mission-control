@@ -633,10 +633,11 @@ body {
       <option value="infra">Infra</option>
       <option value="ops">Ops</option>
     </select>
-    <label>Column</label>
+    <label>Status</label>
     <select id="taskCol">
       <option value="backlog">Backlog</option>
-      <option value="progress">In Progress</option>
+      <option value="inprogress">In Progress</option>
+      <option value="review">Review</option>
       <option value="done">Done</option>
     </select>
     <label>Notes (optional)</label>
@@ -755,10 +756,69 @@ body {
     </div>
   </div>
 
+  <!-- Urgent Alerts Panel -->
+  <div class="card" style="grid-column: 1 / -1; border-left: 3px solid var(--red);">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">🚨</span> Urgent Alerts &amp; Priorities</div>
+      <span class="card-badge badge-red" id="urgentCount">0</span>
+    </div>
+    <div class="card-body" id="urgentList">
+      <div class="item-sub">No urgent items</div>
+    </div>
+  </div>
+
+  <!-- Business KPIs -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">📊</span> Business KPIs</div>
+    </div>
+    <div class="card-body">
+      <div class="health-grid">
+        <div class="health-item">
+          <div class="health-label">Active Tasks</div>
+          <div class="health-value" id="kpiActive">0</div>
+        </div>
+        <div class="health-item">
+          <div class="health-label">Completed</div>
+          <div class="health-value ok" id="kpiDone">0</div>
+        </div>
+        <div class="health-item">
+          <div class="health-label">Urgent Items</div>
+          <div class="health-value error" id="kpiUrgent">0</div>
+        </div>
+        <div class="health-item">
+          <div class="health-label">Team Workload</div>
+          <div class="health-value" id="kpiTeam">0 agents</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent Workload -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">👥</span> Agent Workload</div>
+    </div>
+    <div class="card-body" id="workloadList">
+      <div class="skeleton"></div>
+    </div>
+  </div>
+
+  <!-- Suggestions Panel -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">💡</span> Recommendations</div>
+      <span class="card-badge badge-blue" id="suggestionCount">0</span>
+    </div>
+    <div class="card-body" id="suggestionList">
+      <div class="item-sub">Loading recommendations...</div>
+    </div>
+  </div>
+
   <!-- Task Board -->
   <div class="card task-board">
     <div class="card-header">
-      <div class="card-title"><span class="icon">&#x1F4CB;</span> Task Board</div>
+      <div class="card-title"><span class="icon">&#x1F4CB;</span> Task Board by Status</div>
       <button class="config-btn" onclick="openTaskModal()">+ Add Task</button>
     </div>
     <div class="card-body">
@@ -768,10 +828,15 @@ body {
           <div id="tasks-backlog"></div>
           <button class="add-task" onclick="openTaskModal('backlog')">+ Add</button>
         </div>
-        <div class="kanban-col" id="col-progress" ondrop="dropTask(event,'progress')" ondragover="dragOver(event)" ondragleave="dragLeave(event)">
-          <div class="kanban-col-title" style="color:var(--yellow)">In Progress <span class="count" id="cnt-progress">0</span></div>
-          <div id="tasks-progress"></div>
-          <button class="add-task" onclick="openTaskModal('progress')">+ Add</button>
+        <div class="kanban-col" id="col-inprogress" ondrop="dropTask(event,'inprogress')" ondragover="dragOver(event)" ondragleave="dragLeave(event)">
+          <div class="kanban-col-title" style="color:var(--yellow)">In Progress <span class="count" id="cnt-inprogress">0</span></div>
+          <div id="tasks-inprogress"></div>
+          <button class="add-task" onclick="openTaskModal('inprogress')">+ Add</button>
+        </div>
+        <div class="kanban-col" id="col-review" ondrop="dropTask(event,'review')" ondragover="dragOver(event)" ondragleave="dragLeave(event)">
+          <div class="kanban-col-title" style="color:var(--cyan)">Review <span class="count" id="cnt-review">0</span></div>
+          <div id="tasks-review"></div>
+          <button class="add-task" onclick="openTaskModal('review')">+ Add</button>
         </div>
         <div class="kanban-col" id="col-done" ondrop="dropTask(event,'done')" ondragover="dragOver(event)" ondragleave="dragLeave(event)">
           <div class="kanban-col-title" style="color:var(--green)">Done <span class="count" id="cnt-done">0</span></div>
@@ -811,10 +876,10 @@ function loadTasks() {
     if (saved) return JSON.parse(saved);
   } catch(e) {}
   return [
-    { id: 1, text: 'Configure email channel (Maton)', label: 'infra', col: 'backlog' },
-    { id: 2, text: 'Set up cron health checks', label: 'ops', col: 'backlog' },
-    { id: 3, text: 'Test Telegram bot in group chat', label: 'feature', col: 'progress' },
-    { id: 4, text: 'Initial OpenClaw deployment', label: 'infra', col: 'done' }
+    { id: 1, title: 'Configure email channel (Maton)', label: 'infra', status: 'backlog', priority: 'medium', assignee: 'Wizard' },
+    { id: 2, title: 'Set up cron health checks', label: 'ops', status: 'backlog', priority: 'medium', assignee: 'Wizard' },
+    { id: 3, title: 'Test Telegram bot in group chat', label: 'feature', status: 'inprogress', priority: 'high', assignee: 'Claude' },
+    { id: 4, title: 'Initial OpenClaw deployment', label: 'infra', status: 'done', priority: 'high', assignee: 'Claude' }
   ];
 }
 
@@ -860,21 +925,41 @@ async function apiGet(path) {
 
 // ==================== DATA REFRESH ====================
 async function refreshAll() {
-  const [proxyHealth, snapshot, configData, sessions] = await Promise.all([
+  const [proxyHealth, snapshot, configData, sessions, serverTasks] = await Promise.all([
     apiGet('/health'),
     apiGet('/snapshot'),
     apiGet('/config'),
-    apiGet('/sessions')
+    apiGet('/sessions'),
+    apiGet('/tasks') // Try to load tasks from server
   ]);
 
   const isUp = proxyHealth && proxyHealth.gatewayConnected;
   setConnection(!!isUp);
+
+  // Load tasks from server if available, otherwise use local
+  if (serverTasks && serverTasks.tasks) {
+    tasks = serverTasks.tasks.map(t => ({
+      id: t.id,
+      title: t.title,
+      label: t.label || 'ops',
+      status: t.status === 'inprogress' ? 'inprogress' : t.status,
+      priority: t.priority || 'medium',
+      assignee: t.assignee || 'Unassigned',
+      description: t.description || '',
+      notes: t.notes || ''
+    }));
+  }
 
   renderHealth(snapshot, proxyHealth);
   renderAgents(configData);
   renderChannels(snapshot, configData);
   renderModels(configData);
   renderSessions(sessions);
+  renderTasks();
+  renderUrgentAlerts();
+  renderKPIs();
+  renderWorkload();
+  renderSuggestions(serverTasks);
 }
 
 function setConnection(state) {
@@ -1123,22 +1208,129 @@ function renderSessions(sessionsData) {
   }).join('');
 }
 
+// ==================== CEO DASHBOARD RENDERING ====================
+function renderUrgentAlerts() {
+  const urgentTasks = tasks.filter(t => t.priority === 'urgent' || t.priority === 'high').filter(t => t.status !== 'done');
+  const el = document.getElementById('urgentList');
+  const cnt = document.getElementById('urgentCount');
+
+  cnt.textContent = urgentTasks.length;
+
+  if (urgentTasks.length === 0) {
+    el.innerHTML = '<div class="item-sub">✓ All under control</div>';
+    return;
+  }
+
+  el.innerHTML = urgentTasks.map(t => {
+    const priorityColor = t.priority === 'urgent' ? 'var(--red)' : 'var(--orange)';
+    return `
+      <div class="item-row" style="border-left: 3px solid ${priorityColor}; padding-left: 12px;">
+        <div class="item-info" style="flex-grow: 1;">
+          <div>
+            <div class="item-name">${esc(t.title)}</div>
+            <div class="item-sub">Assigned to ${esc(t.assignee)} • ${t.status}</div>
+          </div>
+        </div>
+        <span class="item-status" style="background:${priorityColor}20;color:${priorityColor};text-transform:uppercase;font-size:11px">${t.priority}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderKPIs() {
+  const active = tasks.filter(t => t.status === 'inprogress').length;
+  const done = tasks.filter(t => t.status === 'done').length;
+  const urgent = tasks.filter(t => (t.priority === 'urgent' || t.priority === 'high') && t.status !== 'done').length;
+  const agents = new Set(tasks.map(t => t.assignee)).size;
+
+  document.getElementById('kpiActive').textContent = active;
+  document.getElementById('kpiDone').textContent = done;
+  document.getElementById('kpiUrgent').textContent = urgent;
+  document.getElementById('kpiTeam').textContent = agents + ' agents';
+}
+
+function renderWorkload() {
+  const workload = {};
+  tasks.forEach(t => {
+    if (!t.assignee || t.assignee === 'Unassigned') return;
+    if (!workload[t.assignee]) workload[t.assignee] = { active: 0, done: 0 };
+    if (t.status === 'done') {
+      workload[t.assignee].done++;
+    } else {
+      workload[t.assignee].active++;
+    }
+  });
+
+  const el = document.getElementById('workloadList');
+  if (Object.keys(workload).length === 0) {
+    el.innerHTML = '<div class="item-sub">No tasks assigned</div>';
+    return;
+  }
+
+  el.innerHTML = Object.entries(workload).map(([agent, counts]) => {
+    const total = counts.active + counts.done;
+    const load = (counts.active / total * 100).toFixed(0);
+    return `
+      <div class="item-row">
+        <div class="item-info" style="flex-grow: 1;">
+          <div class="item-name">${esc(agent)}</div>
+          <div class="item-sub">${counts.active} active • ${counts.done} done</div>
+        </div>
+        <div class="item-sub" style="font-size:12px;padding:4px 10px;background:var(--surface2);border-radius:6px">${load}%</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderSuggestions(serverTasks) {
+  const el = document.getElementById('suggestionList');
+  const cnt = document.getElementById('suggestionCount');
+
+  const suggestions = serverTasks?.suggestions || [];
+  cnt.textContent = suggestions.length;
+
+  if (suggestions.length === 0) {
+    el.innerHTML = '<div class="item-sub">No suggestions at this time</div>';
+    return;
+  }
+
+  el.innerHTML = suggestions.slice(0, 5).map(s => `
+    <div class="item-row">
+      <div class="item-info" style="flex-grow: 1;">
+        <div class="item-name">${esc(s.title)}</div>
+        <div class="item-sub">${esc(s.description)}</div>
+      </div>
+      <span class="item-status badge-${s.priority === 'high' ? 'red' : 'blue'}">${s.priority}</span>
+    </div>
+  `).join('');
+}
+
 // ==================== TASK BOARD ====================
 function renderTasks() {
-  ['backlog', 'progress', 'done'].forEach(col => {
-    const colTasks = tasks.filter(t => t.col === col);
+  ['backlog', 'inprogress', 'review', 'done'].forEach(col => {
+    const colTasks = tasks.filter(t => t.status === col);
     document.getElementById(`cnt-${col}`).textContent = colTasks.length;
     document.getElementById(`tasks-${col}`).innerHTML = colTasks.map(t => `
-      <div class="task-card" draggable="true" ondragstart="dragStart(event, ${t.id})" data-id="${t.id}">
+      <div class="task-card" draggable="true" ondragstart="dragStart(event, '${t.id}')" data-id="${t.id}" style="border-left: 3px solid ${getPriorityColor(t.priority)}">
         <span class="task-label label-${t.label}">${t.label}</span>
-        <div class="task-text">${esc(t.text)}</div>
-        ${t.notes ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px">${esc(t.notes)}</div>` : ''}
+        <div class="task-text">${esc(t.title)}</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:6px">👤 ${esc(t.assignee)} • ${t.priority}</div>
+        ${t.description ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px">${esc(t.description.substring(0, 60))}</div>` : ''}
         <div style="text-align:right;margin-top:4px">
-          <span style="cursor:pointer;font-size:12px;color:var(--red);opacity:0.6" onclick="deleteTask(${t.id})" title="Delete">&#x2715;</span>
+          <span style="cursor:pointer;font-size:12px;color:var(--red);opacity:0.6" onclick="deleteTask('${t.id}')" title="Delete">&#x2715;</span>
         </div>
       </div>
     `).join('');
   });
+}
+
+function getPriorityColor(priority) {
+  switch(priority) {
+    case 'urgent': return 'var(--red)';
+    case 'high': return 'var(--orange)';
+    case 'medium': return 'var(--yellow)';
+    default: return 'var(--cyan)';
+  }
 }
 
 function openTaskModal(col) {
@@ -1154,18 +1346,23 @@ function closeTaskModal() {
 }
 
 function addTask() {
-  const text = document.getElementById('taskTitle').value.trim();
-  if (!text) return;
-  const id = Date.now();
+  const title = document.getElementById('taskTitle').value.trim();
+  if (!title) return;
+  const id = 'task-' + Date.now();
   tasks.push({
     id,
-    text,
+    title,
     label: document.getElementById('taskLabel').value,
-    col: document.getElementById('taskCol').value,
+    status: document.getElementById('taskCol').value,
+    priority: 'medium',
+    assignee: 'Unassigned',
     notes: document.getElementById('taskNotes').value.trim()
   });
   saveTasks();
   renderTasks();
+  renderUrgentAlerts();
+  renderKPIs();
+  renderWorkload();
   closeTaskModal();
 }
 
@@ -1173,6 +1370,9 @@ function deleteTask(id) {
   tasks = tasks.filter(t => t.id !== id);
   saveTasks();
   renderTasks();
+  renderUrgentAlerts();
+  renderKPIs();
+  renderWorkload();
 }
 
 // Drag & Drop
@@ -1193,15 +1393,17 @@ function dragLeave(e) {
   e.currentTarget.classList.remove('drag-over');
 }
 
-function dropTask(e, col) {
+function dropTask(e, status) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   if (draggedId === null) return;
   const task = tasks.find(t => t.id === draggedId);
   if (task) {
-    task.col = col;
+    task.status = status;
     saveTasks();
     renderTasks();
+    renderUrgentAlerts();
+    renderKPIs();
   }
   draggedId = null;
 }
@@ -1285,6 +1487,11 @@ function timeAgo(date) {
 // ==================== INIT ====================
 document.addEventListener('DOMContentLoaded', () => {
   renderTasks();
+  renderUrgentAlerts();
+  renderKPIs();
+  renderWorkload();
+  renderSuggestions({ tasks, suggestions: [] });
+
   if (config.proxyUrl && config.token) {
     startPolling();
   } else {
@@ -1295,6 +1502,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('channelList').innerHTML = '<div class="item-sub">Click Settings to connect</div>';
     document.getElementById('modelList').innerHTML = '<div class="item-sub">Click Settings to connect</div>';
     document.getElementById('sessionList').innerHTML = '<div class="item-sub">Click Settings to connect</div>';
+    document.getElementById('workloadList').innerHTML = '<div class="item-sub">Tasks loaded from local storage</div>';
   }
 });
 
