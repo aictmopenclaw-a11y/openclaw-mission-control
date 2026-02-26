@@ -843,25 +843,6 @@ function saveConfig() {
 }
 
 // ==================== API ====================
-async function rpc(method, args) {
-  if (!config.proxyUrl || !config.token) return null;
-  try {
-    const res = await fetch(`${config.proxyUrl}/rpc`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.token}`
-      },
-      body: JSON.stringify({ method, args: args || {} })
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (e) {
-    console.warn(`RPC ${method} failed:`, e.message);
-    return null;
-  }
-}
-
 async function apiGet(path) {
   if (!config.proxyUrl || !config.token) return null;
   try {
@@ -878,21 +859,21 @@ async function apiGet(path) {
 
 // ==================== DATA REFRESH ====================
 async function refreshAll() {
-  const [status, health, channels, config_data] = await Promise.all([
-    rpc('gateway.status'),
-    rpc('gateway.health'),
-    rpc('channels.status'),
-    apiGet('/config')
+  const [proxyHealth, snapshot, configData, sessions] = await Promise.all([
+    apiGet('/health'),
+    apiGet('/snapshot'),
+    apiGet('/config'),
+    apiGet('/sessions')
   ]);
 
-  const isUp = status || health;
+  const isUp = proxyHealth && proxyHealth.gatewayConnected;
   setConnection(!!isUp);
 
-  renderHealth(status, health);
-  renderAgents(config_data);
-  renderChannels(channels, config_data);
-  renderModels(config_data);
-  renderSessions(status);
+  renderHealth(snapshot, proxyHealth);
+  renderAgents(configData);
+  renderChannels(snapshot, configData);
+  renderModels(configData);
+  renderSessions(sessions);
 }
 
 function setConnection(state) {
@@ -918,14 +899,14 @@ function startPolling() {
 }
 
 // ==================== RENDER FUNCTIONS ====================
-function renderHealth(status, health) {
+function renderHealth(snapshot, proxyHealth) {
   const badge = document.getElementById('healthBadge');
   const gw = document.getElementById('hGateway');
   const up = document.getElementById('hUptime');
   const port = document.getElementById('hPort');
   const sec = document.getElementById('hSecurity');
 
-  if (!status && !health) {
+  if (!snapshot || snapshot.error) {
     badge.textContent = 'Offline';
     badge.className = 'card-badge badge-red';
     gw.textContent = 'Offline'; gw.className = 'health-value error';
@@ -935,14 +916,17 @@ function renderHealth(status, health) {
     return;
   }
 
-  badge.textContent = 'Online';
-  badge.className = 'card-badge badge-green';
+  const healthOk = snapshot.health?.ok !== false;
+  badge.textContent = healthOk ? 'Online' : 'Degraded';
+  badge.className = healthOk ? 'card-badge badge-green' : 'card-badge badge-yellow';
 
   gw.textContent = 'Online';
   gw.className = 'health-value ok';
 
-  if (status && status.uptime) {
-    const secs = status.uptime;
+  // Uptime from snapshot
+  const uptimeMs = snapshot.uptimeMs || (proxyHealth?.uptime * 1000) || 0;
+  if (uptimeMs > 0) {
+    const secs = Math.floor(uptimeMs / 1000);
     const h = Math.floor(secs / 3600);
     const m = Math.floor((secs % 3600) / 60);
     up.textContent = h > 0 ? `${h}h ${m}m` : `${m}m`;
@@ -950,19 +934,18 @@ function renderHealth(status, health) {
     up.textContent = 'Active';
   }
 
-  port.textContent = status?.port || '54924';
+  port.textContent = '54924';
   port.className = 'health-value';
 
-  const securityIssues = [];
-  if (status?.config?.controlUi?.allowInsecureAuth) securityIssues.push('insecure auth');
-  if (status?.config?.controlUi?.dangerouslyDisableDeviceAuth) securityIssues.push('no device auth');
-
-  if (securityIssues.length > 0) {
-    sec.textContent = 'Warnings';
-    sec.className = 'health-value warn';
-    sec.title = securityIssues.join(', ');
+  // Security check from authMode
+  if (snapshot.authMode === 'token') {
+    sec.textContent = 'Token';
+    sec.className = 'health-value ok';
+  } else if (snapshot.authMode === 'none') {
+    sec.textContent = 'No Auth!';
+    sec.className = 'health-value error';
   } else {
-    sec.textContent = 'OK';
+    sec.textContent = snapshot.authMode || 'OK';
     sec.className = 'health-value ok';
   }
 }
@@ -994,7 +977,7 @@ function renderAgents(cfg) {
   `).join('');
 }
 
-function renderChannels(channels, cfg) {
+function renderChannels(snapshot, cfg) {
   const el = document.getElementById('channelList');
   const cnt = document.getElementById('channelCount');
 
@@ -1007,17 +990,40 @@ function renderChannels(channels, cfg) {
   ];
 
   const cfgChannels = cfg?.channels || {};
-  const liveChannels = channels || {};
+  // Health data from snapshot has detailed channel status
+  const healthChannels = snapshot?.health?.channels || {};
   let enabledCount = 0;
 
   const html = channelDefs.map(ch => {
     const cfgCh = cfgChannels[ch.key];
-    const liveCh = liveChannels[ch.key];
-    const enabled = cfgCh?.enabled === true || liveCh?.connected === true;
-    if (enabled) enabledCount++;
+    const healthCh = healthChannels[ch.key];
 
-    const statusClass = enabled ? 'badge-green' : 'badge-red';
-    const statusText = enabled ? 'Connected' : liveCh?.error ? 'Error' : 'Disabled';
+    const configured = healthCh?.configured || cfgCh?.enabled === true;
+    const running = healthCh?.running === true;
+    const probeOk = healthCh?.probe?.ok === true;
+
+    let statusClass, statusText, sub;
+
+    if (configured && probeOk) {
+      enabledCount++;
+      statusClass = 'badge-green';
+      statusText = 'Ready';
+      const botName = healthCh?.probe?.bot?.username;
+      sub = botName ? `@${botName}` : (cfgCh?.streaming || 'active');
+    } else if (configured && running) {
+      enabledCount++;
+      statusClass = 'badge-green';
+      statusText = 'Running';
+      sub = healthCh?.mode || 'active';
+    } else if (configured) {
+      statusClass = 'badge-yellow';
+      statusText = 'Configured';
+      sub = healthCh?.lastError || 'not running';
+    } else {
+      statusClass = 'badge-red';
+      statusText = 'Disabled';
+      sub = 'not configured';
+    }
 
     return `
       <div class="item-row">
@@ -1025,7 +1031,7 @@ function renderChannels(channels, cfg) {
           <div class="item-avatar channel">${ch.icon}</div>
           <div>
             <div class="item-name">${ch.name}</div>
-            <div class="item-sub">${enabled ? (cfgCh?.streaming || 'active') : 'not configured'}</div>
+            <div class="item-sub">${esc(sub)}</div>
           </div>
         </div>
         <span class="item-status ${statusClass}">${statusText}</span>
@@ -1087,11 +1093,11 @@ function renderModels(cfg) {
   }).join('');
 }
 
-function renderSessions(status) {
+function renderSessions(sessionsData) {
   const el = document.getElementById('sessionList');
   const cnt = document.getElementById('sessionCount');
 
-  const sessions = status?.sessions || [];
+  const sessions = sessionsData?.sessions || [];
   cnt.textContent = sessions.length;
 
   if (sessions.length === 0) {
@@ -1099,10 +1105,10 @@ function renderSessions(status) {
     return;
   }
 
-  el.innerHTML = sessions.map(s => {
-    const pct = s.tokenUsage ? Math.min(100, (s.tokenUsage / s.tokenLimit) * 100) : 0;
+  el.innerHTML = sessions.slice(0, 10).map(s => {
     const shortId = (s.id || '').slice(0, 8);
     const ago = s.lastActivity ? timeAgo(new Date(s.lastActivity)) : '--';
+    const sizeKb = s.size ? (s.size / 1024).toFixed(1) : '0';
 
     return `
       <div class="session-item">
@@ -1110,10 +1116,7 @@ function renderSessions(status) {
           <span class="session-id">${esc(shortId)}...</span>
           <span class="session-time">${ago}</span>
         </div>
-        <div style="font-size:12px;color:var(--text-dim)">${esc(s.channel || 'direct')} &middot; ${s.tokenUsage || 0} tokens</div>
-        <div class="session-bar">
-          <div class="session-bar-fill" style="width:${pct}%;${pct > 80 ? 'background:var(--red)' : ''}"></div>
-        </div>
+        <div style="font-size:12px;color:var(--text-dim)">${esc(s.channel || 'direct')} &middot; ${sizeKb} KB</div>
       </div>
     `;
   }).join('');
@@ -1215,10 +1218,14 @@ function logLine(text, cls) {
 
 async function actionHealth() {
   logLine('Running health check...', 'info');
-  const res = await rpc('gateway.health');
-  if (res) {
-    logLine('Gateway health: OK', 'ok');
-    if (res.warnings) res.warnings.forEach(w => logLine(`Warning: ${w}`, 'err'));
+  const res = await apiGet('/snapshot');
+  if (res && res.health) {
+    logLine(`Gateway health: ${res.health.ok ? 'OK' : 'DEGRADED'}`, res.health.ok ? 'ok' : 'err');
+    logLine(`Uptime: ${Math.floor((res.uptimeMs || 0) / 60000)} minutes`, 'info');
+    const channels = res.health.channels || {};
+    Object.entries(channels).forEach(([k, v]) => {
+      logLine(`  ${k}: ${v.configured ? (v.probe?.ok ? 'probe OK' : 'configured') : 'disabled'}`, v.probe?.ok ? 'ok' : '');
+    });
   } else {
     logLine('Health check failed - cannot reach gateway', 'err');
   }
@@ -1226,25 +1233,31 @@ async function actionHealth() {
 
 async function actionChannels() {
   logLine('Checking channel status...', 'info');
-  const res = await rpc('channels.status');
-  if (res) {
-    Object.entries(res).forEach(([k, v]) => {
-      logLine(`${k}: ${v.connected ? 'connected' : v.error || 'disconnected'}`, v.connected ? 'ok' : 'err');
+  const res = await apiGet('/snapshot');
+  const channels = res?.health?.channels || {};
+  if (Object.keys(channels).length > 0) {
+    Object.entries(channels).forEach(([k, v]) => {
+      const status = v.configured ? (v.running ? 'running' : v.probe?.ok ? 'ready' : 'stopped') : 'disabled';
+      logLine(`${k}: ${status}${v.probe?.bot?.username ? ' (@' + v.probe.bot.username + ')' : ''}`, v.probe?.ok ? 'ok' : 'err');
     });
   } else {
-    logLine('Channel check failed', 'err');
+    logLine('No channel data available', 'err');
   }
 }
 
 async function actionCron() {
   logLine('Fetching cron jobs...', 'info');
-  const res = await rpc('cron.list');
-  if (res && res.length > 0) {
-    res.forEach(j => logLine(`${j.name}: ${j.schedule} (${j.enabled ? 'enabled' : 'disabled'})`, 'ok'));
-  } else if (res) {
-    logLine('No cron jobs configured', 'info');
-  } else {
-    logLine('Failed to fetch cron jobs', 'err');
+  const res = await apiGet('/snapshot');
+  // Cron data may be in snapshot or events
+  logLine('Cron data: check gateway events', 'info');
+  const events = await apiGet('/events');
+  if (events?.events) {
+    const cronEvents = events.events.filter(e => e.event === 'cron');
+    if (cronEvents.length > 0) {
+      cronEvents.forEach(e => logLine(`Cron event: ${JSON.stringify(e.payload).slice(0, 100)}`, 'info'));
+    } else {
+      logLine('No cron events in buffer', 'info');
+    }
   }
 }
 
